@@ -1285,10 +1285,40 @@ function refreshAll() {
     refreshAll();
   });
   document.getElementById('btnExport').addEventListener('click', exportFilteredCsv);
+// ===== Auto-carregar dados.csv do GitHub ao abrir =====
+async function autoLoadDadosCSV() {
+  try {
+    // evita cache (sempre pega a versão mais nova)
+    const url = 'dados.csv?v=' + Date.now();
+
+    const resp = await fetch(url, { cache: 'no-store' });
+    if (!resp.ok) throw new Error('Não consegui baixar ' + url);
+
+    const csvText = await resp.text();
+
+    // "simula" um arquivo escolhido no input, reaproveitando seu mesmo fluxo de leitura
+    const file = new File([csvText], 'dados.csv', { type: 'text/csv' });
+    const dt = new DataTransfer();
+    dt.items.add(file);
+
+    const input = document.getElementById('fileInput');
+    if (!input) throw new Error('fileInput não encontrado');
+
+    input.files = dt.files;
+
+    // usa a função que você já tem (replace = substitui os dados)
+    loadCsvFromInput('replace');
+  } catch (e) {
+    console.warn('Auto-load falhou:', e);
+  }
+}
 
   // Inicializa
-  setDateInputsFromData();
-  refreshAll();
+// Inicializa
+autoLoadDadosCSV();
+setDateInputsFromData();
+refreshAll();
+
 </script>
 </body>
 </html>
