@@ -2,761 +2,673 @@
 <html lang="pt-BR">
 <head>
   <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Dashboard — Movimentação diária (corridas e passageiros)</title>
 
-  <!-- Bibliotecas -->
-  <script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
+  <!-- Chart.js (gráficos) -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+
+  <!-- SheetJS (ler XLSX) -->
+  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 
   <style>
     :root{
       --bg:#f6f8fc;
       --card:#ffffff;
       --text:#0f172a;
-      --muted:#475569;
+      --muted:#64748b;
       --border:#e2e8f0;
-      --shadow: 0 10px 30px rgba(15,23,42,.08);
-      --radius:18px;
-      --pad:18px;
-      --gap:14px;
       --accent:#2563eb;
       --ok:#16a34a;
       --bad:#ef4444;
       --warn:#f59e0b;
+      --radius:18px;
+      --shadow:0 10px 28px rgba(15,23,42,.08);
     }
     *{box-sizing:border-box}
     body{
       margin:0;
       font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
-      background: radial-gradient(900px 500px at 10% 10%, rgba(37,99,235,.08), transparent 55%),
-                  radial-gradient(900px 500px at 90% 10%, rgba(22,163,74,.08), transparent 55%),
-                  linear-gradient(180deg, var(--bg), #ffffff);
+      background:
+        radial-gradient(900px 550px at 12% 10%, rgba(37,99,235,.10), transparent 55%),
+        radial-gradient(900px 550px at 88% 12%, rgba(22,163,74,.10), transparent 55%),
+        linear-gradient(180deg, var(--bg), #ffffff);
       color:var(--text);
       line-height:1.35;
     }
     header{
       max-width:1200px;
-      margin:0 auto;
-      padding:26px 18px 6px;
+      margin:26px auto 10px;
+      padding:0 18px;
     }
-    h1{margin:0 0 8px; font-size:26px;}
-    .sub{margin:0; color:var(--muted); font-size:14px;}
-    .wrap{max-width:1200px; margin:0 auto; padding:14px 18px 30px;}
+    h1{margin:0 0 6px; font-size:26px}
+    .sub{margin:0; color:var(--muted)}
+    .wrap{max-width:1200px; margin:18px auto 40px; padding:0 18px; display:grid; gap:16px;}
     .card{
       background:var(--card);
       border:1px solid var(--border);
       border-radius:var(--radius);
       box-shadow:var(--shadow);
-      padding:var(--pad);
+      padding:16px;
     }
-    .controls{
-      display:flex;
-      flex-wrap:wrap;
-      gap:12px;
-      align-items:flex-end;
-      justify-content:space-between;
+
+    .controls{display:grid; grid-template-columns: 1.2fr .8fr .8fr 1.2fr; gap:12px; align-items:end;}
+    .ctrl label{display:block; font-size:12px; color:var(--muted); margin:0 0 6px;}
+    .ctrl input, .ctrl select, .ctrl button{
+      width:100%;
+      padding:10px 12px;
+      border-radius:12px;
+      border:1px solid var(--border);
+      background:#fff;
+      color:var(--text);
+      outline:none;
     }
-    .leftControls{display:flex; flex-wrap:wrap; gap:12px; align-items:flex-end;}
-    .ctrl{
-      display:flex;
-      flex-direction:column;
-      gap:6px;
-      min-width:220px;
-    }
-    label{font-size:13px; color:var(--muted)}
-    input[type="date"], input[type="file"], select{
-      height:38px;
+    .ctrl select{min-height:44px}
+    .btns{display:flex; gap:10px; flex-wrap:wrap; margin-top:12px;}
+    .btn{
       border:1px solid var(--border);
       border-radius:12px;
-      padding:6px 10px;
-      font-size:14px;
+      padding:10px 12px;
       background:#fff;
-    }
-    select[multiple]{height:auto; min-height:120px; padding:10px;}
-    .btns{display:flex; flex-wrap:wrap; gap:10px; align-items:center;}
-    button{
-      border:0;
-      border-radius:999px;
-      padding:10px 14px;
-      font-weight:600;
       cursor:pointer;
-      font-size:13px;
-      box-shadow:0 6px 18px rgba(15,23,42,.08);
-      background:#fff;
-      border:1px solid var(--border);
+      font-weight:600;
     }
-    button.primary{background:var(--accent); color:#fff; border-color:transparent;}
-    button.danger{background:var(--bad); color:#fff; border-color:transparent;}
-    .hint{font-size:12px; color:var(--muted); margin-top:6px;}
-    .statusLine{margin-top:10px; color:var(--muted); font-size:12px;}
-    .grid{
-      display:grid;
-      grid-template-columns: repeat(4, minmax(0, 1fr));
-      gap:14px;
-      margin-top:14px;
-    }
-    @media(max-width:1000px){ .grid{grid-template-columns: repeat(2, minmax(0, 1fr));} }
-    @media(max-width:560px){ .grid{grid-template-columns: 1fr;} .ctrl{min-width:100%;} }
+    .btn.primary{background:var(--accent); border-color:var(--accent); color:#fff;}
+    .btn.ok{background:var(--ok); border-color:var(--ok); color:#fff;}
+    .btn.bad{background:var(--bad); border-color:var(--bad); color:#fff;}
+    .btn:disabled{opacity:.6; cursor:not-allowed}
+
+    .meta{margin-top:10px; color:var(--muted); font-size:12px}
+
+    .kpis{display:grid; grid-template-columns: repeat(4, 1fr); gap:12px;}
     .kpi{
       border:1px solid var(--border);
-      border-radius:18px;
-      padding:16px;
-      background: linear-gradient(180deg, #ffffff, #fbfdff);
-      position:relative;
-      overflow:hidden;
+      border-radius:16px;
+      padding:14px;
+      background:linear-gradient(180deg,#fff, #fbfdff);
+      min-height:92px;
+      display:flex; flex-direction:column; justify-content:center;
     }
-    .kpi::after{
-      content:"";
-      position:absolute;
-      right:-40px; top:-40px;
-      width:140px; height:140px;
-      border-radius:999px;
-      background: radial-gradient(circle at 30% 30%, rgba(37,99,235,.15), transparent 70%);
-      filter: blur(0px);
-    }
-    .kpi h3{margin:0; font-size:13px; color:var(--muted); font-weight:700;}
-    .kpi .v{margin-top:6px; font-size:26px; font-weight:800;}
-    .kpi .s{margin-top:6px; font-size:12px; color:var(--muted);}
-    .kpi.b{border-left:6px solid var(--accent)}
-    .kpi.g{border-left:6px solid var(--ok)}
-    .kpi.r{border-left:6px solid var(--bad)}
-    .kpi.y{border-left:6px solid var(--warn)}
+    .kpi .t{color:var(--muted); font-size:12px; font-weight:700}
+    .kpi .v{font-size:26px; font-weight:800; margin-top:6px}
+    .kpi .s{color:var(--muted); font-size:12px; margin-top:6px}
 
-    .sectionTitle{
-      margin-top:18px;
-      margin-bottom:10px;
-      font-size:16px;
-      font-weight:800;
+    .grid2{display:grid; grid-template-columns: 1fr 1fr; gap:12px;}
+    canvas{max-width:100%}
+
+    table{width:100%; border-collapse:collapse; font-size:13px}
+    th, td{padding:10px; border-bottom:1px solid var(--border); text-align:left; vertical-align:top}
+    th{color:var(--muted); font-size:12px; text-transform:uppercase; letter-spacing:.04em}
+    .pill{display:inline-block; padding:4px 10px; border-radius:999px; font-size:12px; border:1px solid var(--border); color:var(--muted); background:#fff}
+    .row{display:flex; gap:8px; flex-wrap:wrap; align-items:center}
+    .titleRow{
+      display:flex; justify-content:space-between; align-items:center; gap:12px; flex-wrap:wrap;
+      margin-bottom:8px;
     }
-    .charts{
-      display:grid;
-      grid-template-columns: 1fr 1fr;
-      gap:14px;
-      margin-top:10px;
+
+    @media (max-width: 980px){
+      .controls{grid-template-columns: 1fr 1fr}
+      .kpis{grid-template-columns: repeat(2, 1fr)}
+      .grid2{grid-template-columns: 1fr}
     }
-    @media(max-width:900px){ .charts{grid-template-columns:1fr;} }
-    canvas{width:100%; height:320px;}
-    table{
-      width:100%;
-      border-collapse:collapse;
-      font-size:13px;
-    }
-    th, td{
-      border-bottom:1px solid var(--border);
-      padding:10px 8px;
-      text-align:left;
-      white-space:nowrap;
-    }
-    th{color:var(--muted); font-weight:800; font-size:12px;}
-    .tableWrap{overflow:auto; border:1px solid var(--border); border-radius:16px;}
   </style>
 </head>
 
 <body>
   <header>
     <h1>Dashboard — Movimentação diária (corridas e passageiros)</h1>
-    <p class="sub">Agora o site tenta carregar automaticamente <b>dados.csv</b> do GitHub. Se quiser, você ainda pode importar manualmente.</p>
+    <p class="sub">Lê automaticamente o arquivo <b>dados.xlsx</b> (todas as abas) do GitHub e consolida tudo.</p>
   </header>
 
   <div class="wrap">
     <section class="card">
+      <div class="titleRow">
+        <div class="row">
+          <span class="pill">Fonte: <b id="srcName">dados.xlsx</b></span>
+          <span class="pill">Abas lidas: <b id="sheetsCount">—</b></span>
+          <span class="pill">Linhas: <b id="rowsCount">—</b></span>
+        </div>
+        <div class="row">
+          <button class="btn ok" id="btnReload">Recarregar do GitHub</button>
+          <button class="btn" id="btnExport">Exportar (CSV filtrado)</button>
+        </div>
+      </div>
+
       <div class="controls">
-        <div class="leftControls">
-          <div class="ctrl" style="min-width: 320px;">
-            <label>Importar CSV (separador ;)</label>
-            <input id="fileInput" type="file" accept=".csv,text/csv" />
-            <div class="hint">Dica: mantenha o arquivo no repositório como <b>dados.csv</b>.</div>
-          </div>
-
-          <div class="ctrl">
-            <label>Data inicial</label>
-            <input id="dateStart" type="date" />
-          </div>
-
-          <div class="ctrl">
-            <label>Data final</label>
-            <input id="dateEnd" type="date" />
-          </div>
-
-          <div class="ctrl">
-            <label>Meses</label>
-            <select id="monthSelect" multiple size="5"></select>
-            <div class="hint">Ctrl (Windows) para selecionar mais de 1 mês.</div>
-          </div>
+        <div class="ctrl">
+          <label>Meses (pode selecionar mais de um)</label>
+          <select id="monthSelect" multiple size="4"></select>
+          <div class="meta">Dica: segure <b>Ctrl</b> (Windows) / <b>Cmd</b> (Mac) para selecionar mais de um.</div>
         </div>
 
-        <div class="btns">
-          <button class="primary" id="btnReplace">Carregar e substituir dados</button>
-          <button id="btnMerge">Adicionar atualização (mesclar)</button>
-          <button class="danger" id="btnReset">Resetar para dados do arquivo enviado</button>
-          <button id="btnClearMonths">Limpar meses</button>
-          <button id="btnExport">Exportar (CSV filtrado)</button>
+        <div class="ctrl">
+          <label>Data inicial</label>
+          <input id="dateStart" type="date" />
+        </div>
+
+        <div class="ctrl">
+          <label>Data final</label>
+          <input id="dateEnd" type="date" />
+        </div>
+
+        <div class="ctrl">
+          <label>Buscar no detalhamento</label>
+          <input id="q" type="text" placeholder="ex.: janeiro, 2026-01-05, etc." />
         </div>
       </div>
 
-      <div class="statusLine" id="statusLine">Aguardando dados…</div>
+      <div class="btns">
+        <button class="btn primary" id="btnApply">Aplicar filtro</button>
+        <button class="btn bad" id="btnReset">Resetar filtros</button>
+      </div>
+
+      <div class="meta" id="metaPeriod">—</div>
     </section>
 
-    <div class="sectionTitle" id="titlePeriod">—</div>
-
     <section class="card">
-      <div class="grid">
-        <div class="kpi b">
-          <h3>Corridas (total)</h3>
-          <div class="v" id="kpiCorridas">—</div>
-          <div class="s" id="kpiCorridasSub">—</div>
-        </div>
+      <div class="kpis">
+        <div class="kpi"><div class="t">Corridas (total)</div><div class="v" id="k_corridas">—</div><div class="s" id="k_corridas_s">—</div></div>
+        <div class="kpi"><div class="t">Finalizadas (total)</div><div class="v" id="k_finalizadas">—</div><div class="s" id="k_finalizadas_s">—</div></div>
+        <div class="kpi"><div class="t">Canceladas (total)</div><div class="v" id="k_canceladas">—</div><div class="s" id="k_canceladas_s">—</div></div>
+        <div class="kpi"><div class="t">Passageiros (total)</div><div class="v" id="k_passageiros">—</div><div class="s" id="k_passageiros_s">—</div></div>
 
-        <div class="kpi g">
-          <h3>Finalizadas (total)</h3>
-          <div class="v" id="kpiFinalizadas">—</div>
-          <div class="s" id="kpiFinalizadasSub">—</div>
-        </div>
-
-        <div class="kpi r">
-          <h3>Canceladas (total)</h3>
-          <div class="v" id="kpiCanceladas">—</div>
-          <div class="s" id="kpiCanceladasSub">—</div>
-        </div>
-
-        <div class="kpi">
-          <h3>Passageiros (total do período)</h3>
-          <div class="v" id="kpiPassageiros">—</div>
-          <div class="s" id="kpiPassageirosSub">—</div>
-        </div>
-
-        <div class="kpi y">
-          <h3>Vlr. Viagem (total)</h3>
-          <div class="v" id="kpiVlrViagem">—</div>
-          <div class="s" id="kpiVlrViagemSub">—</div>
-        </div>
-
-        <div class="kpi">
-          <h3>Vlr. Motora (total)</h3>
-          <div class="v" id="kpiVlrMotora">—</div>
-          <div class="s" id="kpiVlrMotoraSub">—</div>
-        </div>
-
-        <div class="kpi">
-          <h3>Ticket médio (R$/corrida)</h3>
-          <div class="v" id="kpiTicket">—</div>
-          <div class="s" id="kpiTicketSub">—</div>
-        </div>
-
-        <div class="kpi">
-          <h3>Corridas por dia (média)</h3>
-          <div class="v" id="kpiCorridasDia">—</div>
-          <div class="s" id="kpiCorridasDiaSub">—</div>
-        </div>
-      </div>
-
-      <div class="charts">
-        <div class="card" style="box-shadow:none;">
-          <div class="sectionTitle" style="margin-top:0;">Corridas por dia</div>
-          <canvas id="chartDaily"></canvas>
-        </div>
-        <div class="card" style="box-shadow:none;">
-          <div class="sectionTitle" style="margin-top:0;">Eficiência Operacional</div>
-          <canvas id="chartPie"></canvas>
-        </div>
+        <div class="kpi"><div class="t">Vlr. Viagem (total)</div><div class="v" id="k_viagem">—</div><div class="s" id="k_viagem_s">—</div></div>
+        <div class="kpi"><div class="t">Vlr. Motora (total)</div><div class="v" id="k_motora">—</div><div class="s" id="k_motora_s">—</div></div>
+        <div class="kpi"><div class="t">Ticket médio (R$/corrida)</div><div class="v" id="k_ticket">—</div><div class="s" id="k_ticket_s">—</div></div>
+        <div class="kpi"><div class="t">Corridas por dia (média)</div><div class="v" id="k_cpd">—</div><div class="s" id="k_cpd_s">—</div></div>
       </div>
     </section>
 
-    <div class="sectionTitle">Tabela detalhada</div>
+    <section class="grid2">
+      <section class="card">
+        <h3 style="margin:0 0 10px">Corridas por dia</h3>
+        <canvas id="chartDays" height="140"></canvas>
+      </section>
+
+      <section class="card">
+        <h3 style="margin:0 0 10px">Eficiência Operacional</h3>
+        <canvas id="chartPie" height="140"></canvas>
+      </section>
+    </section>
+
     <section class="card">
-      <div class="tableWrap">
-        <table id="tbl">
+      <div class="titleRow">
+        <h3 style="margin:0">Detalhamento</h3>
+        <span class="pill">Mostrando: <b id="shownCount">—</b></span>
+      </div>
+      <div style="overflow:auto">
+        <table>
           <thead>
             <tr>
-              <th>Mês(aba)</th>
+              <th>Planilha</th>
               <th>Data</th>
               <th>Corridas</th>
               <th>Finalizadas</th>
               <th>Canceladas</th>
               <th>Passageiros</th>
-              <th>Vlr Viagem</th>
+              <th>Vlr. Viagem</th>
+              <th>Vlr. Motora</th>
               <th>Franquia</th>
-              <th>Vlr Motora</th>
-              <th>Mot. a receber</th>
             </tr>
           </thead>
-          <tbody id="tblBody"></tbody>
+          <tbody id="tbody"></tbody>
         </table>
       </div>
     </section>
   </div>
 
 <script>
-/**
- * FORMATO ESPERADO (SEPARADOR ;)
- * Exemplo de linha:
- * janeiro26;2026-01-05;46;31;15;19;2963;2026-01-05 00:00:00;31;653.81;65.38;588.43;93.09;0.1582
- *
- * Vamos usar:
- * 0 Planilha/aba
- * 1 Data (YYYY-MM-DD)  <-- ESSA É A DATA PRINCIPAL
- * 2 Corridas
- * 3 Finalizadas
- * 4 Canceladas
- * 6 Passageiros
- * 9 Vlr Viagem
- * 10 Franquia
- * 11 Vlr Motora
- * 12 Mot a receber
- */
+  // =============================
+  // Utilitários
+  // =============================
+  const fmtInt = (n) => (Number.isFinite(n) ? Math.round(n).toLocaleString('pt-BR') : '—');
+  const fmtMoney = (n) => (Number.isFinite(n) ? n.toLocaleString('pt-BR',{style:'currency',currency:'BRL'}) : '—');
+  const pad2 = (x) => String(x).padStart(2,'0');
 
-const DATA_URL = 'dados.csv';
+  function toISODate(d){
+    if(!(d instanceof Date) || isNaN(d)) return null;
+    return `${d.getFullYear()}-${pad2(d.getMonth()+1)}-${pad2(d.getDate())}`;
+  }
 
-let rawData = [];         // dados normalizados
-let sourceFileData = [];  // último arquivo carregado manualmente
-let chartDaily = null;
-let chartPie = null;
+  function parseExcelDate(v){
+    // 1) Date já pronta
+    if (v instanceof Date && !isNaN(v)) return v;
 
-const el = (id) => document.getElementById(id);
+    // 2) Número serial do Excel (ex.: 45600)
+    if (typeof v === 'number' && isFinite(v)) {
+      // XLSX já fornece util para datas
+      const dc = XLSX.SSF.parse_date_code(v);
+      if (dc && dc.y && dc.m && dc.d) return new Date(dc.y, dc.m - 1, dc.d);
+    }
 
-function toISODate(s){
-  // aceita "2026-01-05" ou "2026-01-05 00:00:00"
-  if(!s) return null;
-  const t = String(s).trim();
-  const m = t.match(/^(\d{4}-\d{2}-\d{2})/);
-  return m ? m[1] : null;
-}
+    // 3) String: "2026-01-05" ou "2026-01-05 00:00:00" ou "05/01/2026"
+    if (typeof v === 'string') {
+      const s = v.trim();
+      // yyyy-mm-dd...
+      const m1 = s.match(/^(\d{4})-(\d{2})-(\d{2})/);
+      if (m1) return new Date(Number(m1[1]), Number(m1[2]) - 1, Number(m1[3]));
+      // dd/mm/yyyy
+      const m2 = s.match(/^(\d{2})\/(\d{2})\/(\d{4})/);
+      if (m2) return new Date(Number(m2[3]), Number(m2[2]) - 1, Number(m2[1]));
+    }
 
-function monthKey(iso){ // "2026-01-05" -> "2026-01"
-  return iso ? iso.slice(0,7) : null;
-}
+    return null;
+  }
 
-function monthLabel(key){ // "2026-01" -> "jan de 2026"
-  const [y,m] = key.split('-').map(x=>parseInt(x,10));
-  const nomes = ['jan','fev','mar','abr','mai','jun','jul','ago','set','out','nov','dez'];
-  return `${nomes[m-1]} de ${y}`;
-}
+  function toNumber(v){
+    if (v === null || v === undefined) return 0;
+    if (typeof v === 'number' && isFinite(v)) return v;
+    if (typeof v === 'string') {
+      // aceita "2.076,54" ou "2076,54" ou "2076.54"
+      let s = v.trim();
+      if (!s) return 0;
+      // remove espaços e R$
+      s = s.replace(/\s/g,'').replace(/^R\$/i,'');
+      // se tem vírgula e ponto, assume pt-BR
+      if (s.includes(',') && s.includes('.')) s = s.replace(/\./g,'').replace(',', '.');
+      else if (s.includes(',') && !s.includes('.')) s = s.replace(',', '.');
+      const n = Number(s);
+      return isFinite(n) ? n : 0;
+    }
+    return 0;
+  }
 
-function n(v){
-  const x = Number(String(v ?? '').replace(',', '.'));
-  return Number.isFinite(x) ? x : 0;
-}
+  function normKey(k){
+    return String(k||'').trim().toLowerCase();
+  }
 
-function brMoney(v){
-  return v.toLocaleString('pt-BR', {style:'currency', currency:'BRL'});
-}
-function brInt(v){
-  return v.toLocaleString('pt-BR');
-}
-function brPct(v){
-  return (v*100).toFixed(2).replace('.',',') + '%';
-}
+  // tenta achar a coluna de data por nomes comuns
+  const DATE_KEYS = ['data', 'date', 'dia'];
+  const CORRIDAS_KEYS = ['corridas', 'corrida', 'total corridas'];
+  const FINAL_KEYS = ['finalizadas', 'finalizada', 'concluidas', 'concluídas'];
+  const CANC_KEYS = ['canceladas', 'cancelada'];
+  const PASS_KEYS = ['passageiros', 'passageiro'];
+  const VIAGEM_KEYS = ['vlr viagem', 'valor viagem', 'viagem', 'vlr_viagem', 'vlrviagem'];
+  const MOTORA_KEYS = ['vlr motora', 'valor motora', 'motora', 'vlr_motora', 'vlrmotora'];
+  const FRANQ_KEYS = ['franquia', 'taxa', 'vlr franquia', 'valor franquia'];
 
-function normalizeRows(rows){
-  // rows pode vir de Papa com header false (array) ou header true (obj)
-  const out = [];
-  for(const r of rows){
-    const arr = Array.isArray(r) ? r : Object.values(r);
-    const planilha = (arr[0] ?? '').toString().trim();
-    const dataISO = toISODate(arr[1]);
-    if(!dataISO) continue;
+  function findCol(cols, keys){
+    const map = cols.map(c => normKey(c));
+    for (const k of keys){
+      const idx = map.indexOf(normKey(k));
+      if (idx >= 0) return cols[idx];
+    }
+    // tenta "contém"
+    for (let i=0;i<cols.length;i++){
+      for (const k of keys){
+        if (map[i].includes(normKey(k))) return cols[i];
+      }
+    }
+    return null;
+  }
 
-    out.push({
-      planilha,
-      dataISO,
-      corridas: n(arr[2]),
-      finalizadas: n(arr[3]),
-      canceladas: n(arr[4]),
-      passageiros: n(arr[6]),
-      vlr_viagem: n(arr[9]),
-      franquia: n(arr[10]),
-      vlr_motora: n(arr[11]),
-      mot_a_receber: n(arr[12]),
-      _raw: arr
+  // =============================
+  // Estado
+  // =============================
+  let allRows = [];       // todas as linhas consolidadas
+  let filtered = [];      // linhas filtradas
+  let chartDays = null;
+  let chartPie = null;
+
+  // =============================
+  // Carregar XLSX do GitHub
+  // =============================
+  async function loadFromGitHub(){
+    // cache-bust pra pegar sempre o mais novo
+    const url = `dados.xlsx?v=${Date.now()}`;
+
+    const resp = await fetch(url, { cache: 'no-store' });
+    if (!resp.ok) throw new Error(`Não consegui baixar ${url} (HTTP ${resp.status})`);
+
+    const buf = await resp.arrayBuffer();
+    const wb = XLSX.read(buf, { type: 'array' });
+
+    document.getElementById('sheetsCount').textContent = wb.SheetNames.length;
+
+    const rows = [];
+    for (const sheetName of wb.SheetNames){
+      const ws = wb.Sheets[sheetName];
+      if (!ws) continue;
+
+      // lê como objetos usando a primeira linha como header
+      const json = XLSX.utils.sheet_to_json(ws, { defval: null, raw: true });
+
+      if (!Array.isArray(json) || json.length === 0) continue;
+
+      // detecta colunas
+      const cols = Object.keys(json[0] || {});
+      const colDate = findCol(cols, DATE_KEYS);
+
+      // se não tem coluna de data, ignora a aba (mas não quebra)
+      if (!colDate) continue;
+
+      const colCorridas = findCol(cols, CORRIDAS_KEYS);
+      const colFinal = findCol(cols, FINAL_KEYS);
+      const colCanc = findCol(cols, CANC_KEYS);
+      const colPass = findCol(cols, PASS_KEYS);
+      const colViagem = findCol(cols, VIAGEM_KEYS);
+      const colMotora = findCol(cols, MOTORA_KEYS);
+      const colFranquia = findCol(cols, FRANQ_KEYS);
+
+      for (const r of json){
+        const d = parseExcelDate(r[colDate]);
+        const iso = toISODate(d);
+        if (!iso) continue;
+
+        rows.push({
+          planilha: sheetName,
+          data: iso,
+          corridas: toNumber(colCorridas ? r[colCorridas] : 0),
+          finalizadas: toNumber(colFinal ? r[colFinal] : 0),
+          canceladas: toNumber(colCanc ? r[colCanc] : 0),
+          passageiros: toNumber(colPass ? r[colPass] : 0),
+          vlr_viagem: toNumber(colViagem ? r[colViagem] : 0),
+          vlr_motora: toNumber(colMotora ? r[colMotora] : 0),
+          franquia: toNumber(colFranquia ? r[colFranquia] : 0),
+        });
+      }
+    }
+
+    if (rows.length === 0){
+      throw new Error('Não consegui identificar linhas com datas no XLSX. Verifique se as abas têm uma coluna "Data" (ou similar) e cabeçalho na linha 1.');
+    }
+
+    // ordena por data
+    rows.sort((a,b) => a.data.localeCompare(b.data));
+
+    allRows = rows;
+    document.getElementById('rowsCount').textContent = rows.length;
+
+    // prepara filtros padrão
+    setupFilters();
+    applyFilters();
+  }
+
+  function setupFilters(){
+    // meses disponíveis (YYYY-MM)
+    const months = Array.from(new Set(allRows.map(r => r.data.slice(0,7))));
+    const sel = document.getElementById('monthSelect');
+    sel.innerHTML = '';
+    for (const m of months){
+      const opt = document.createElement('option');
+      const [y,mm] = m.split('-');
+      const monthName = ['jan','fev','mar','abr','mai','jun','jul','ago','set','out','nov','dez'][Number(mm)-1];
+      opt.value = m;
+      opt.textContent = `${monthName} de ${y}`;
+      sel.appendChild(opt);
+    }
+
+    // datas mín/máx
+    const minD = allRows[0]?.data || '';
+    const maxD = allRows[allRows.length-1]?.data || '';
+    document.getElementById('dateStart').value = minD;
+    document.getElementById('dateEnd').value = maxD;
+
+    // por padrão seleciona o último mês
+    if (months.length){
+      const last = months[months.length-1];
+      for (const opt of sel.options){
+        opt.selected = (opt.value === last);
+      }
+    }
+  }
+
+  function getSelectedMonths(){
+    const sel = document.getElementById('monthSelect');
+    return Array.from(sel.selectedOptions).map(o => o.value);
+  }
+
+  function applyFilters(){
+    const start = document.getElementById('dateStart').value;
+    const end = document.getElementById('dateEnd').value;
+    const q = (document.getElementById('q').value || '').trim().toLowerCase();
+    const months = getSelectedMonths();
+
+    filtered = allRows.filter(r => {
+      const okDate = (!start || r.data >= start) && (!end || r.data <= end);
+      const okMonth = months.length ? months.includes(r.data.slice(0,7)) : true;
+      const okQ = q ? (
+        r.planilha.toLowerCase().includes(q) ||
+        r.data.includes(q)
+      ) : true;
+      return okDate && okMonth && okQ;
+    });
+
+    renderMeta();
+    renderKPIs();
+    renderCharts();
+    renderTable();
+  }
+
+  function resetFilters(){
+    const minD = allRows[0]?.data || '';
+    const maxD = allRows[allRows.length-1]?.data || '';
+    document.getElementById('dateStart').value = minD;
+    document.getElementById('dateEnd').value = maxD;
+    document.getElementById('q').value = '';
+
+    // seleciona último mês
+    const months = Array.from(new Set(allRows.map(r => r.data.slice(0,7))));
+    const last = months[months.length-1];
+    const sel = document.getElementById('monthSelect');
+    for (const opt of sel.options){
+      opt.selected = (opt.value === last);
+    }
+
+    applyFilters();
+  }
+
+  function renderMeta(){
+    const start = document.getElementById('dateStart').value;
+    const end = document.getElementById('dateEnd').value;
+    const months = getSelectedMonths();
+    document.getElementById('metaPeriod').textContent =
+      `Período: ${start || '—'} até ${end || '—'} • Meses: ${months.length ? months.join(', ') : 'todos'} • Linhas filtradas: ${filtered.length}`;
+  }
+
+  function sum(key){
+    return filtered.reduce((acc,r) => acc + (Number(r[key])||0), 0);
+  }
+
+  function renderKPIs(){
+    const corridas = sum('corridas');
+    const finalizadas = sum('finalizadas');
+    const canceladas = sum('canceladas');
+    const passageiros = sum('passageiros');
+    const vlr_viagem = sum('vlr_viagem');
+    const vlr_motora = sum('vlr_motora');
+    const franquia = sum('franquia');
+
+    const taxaFinal = (corridas>0) ? (finalizadas/corridas) : 0;
+    const taxaCanc = (corridas>0) ? (canceladas/corridas) : 0;
+    const ticket = (finalizadas>0) ? (vlr_viagem/finalizadas) : 0;
+
+    // dias únicos com dados
+    const dias = new Set(filtered.map(r => r.data)).size || 0;
+    const cpd = (dias>0) ? (finalizadas/dias) : 0;
+
+    document.getElementById('k_corridas').textContent = fmtInt(corridas);
+    document.getElementById('k_finalizadas').textContent = fmtInt(finalizadas);
+    document.getElementById('k_canceladas').textContent = fmtInt(canceladas);
+    document.getElementById('k_passageiros').textContent = fmtInt(passageiros);
+
+    document.getElementById('k_viagem').textContent = fmtMoney(vlr_viagem);
+    document.getElementById('k_motora').textContent = fmtMoney(vlr_motora);
+    document.getElementById('k_ticket').textContent = fmtMoney(ticket);
+    document.getElementById('k_cpd').textContent = Number.isFinite(cpd) ? cpd.toLocaleString('pt-BR',{minimumFractionDigits:2, maximumFractionDigits:2}) : '—';
+
+    document.getElementById('k_corridas_s').textContent = `Franquia (total): ${fmtMoney(franquia)}`;
+    document.getElementById('k_finalizadas_s').textContent = `Taxa de finalização: ${(taxaFinal*100).toLocaleString('pt-BR',{maximumFractionDigits:2})}%`;
+    document.getElementById('k_canceladas_s').textContent = `Taxa de cancelamento: ${(taxaCanc*100).toLocaleString('pt-BR',{maximumFractionDigits:2})}%`;
+    document.getElementById('k_passageiros_s').textContent = `Total geral (somado): ${fmtInt(passageiros)}`;
+    document.getElementById('k_viagem_s').textContent = `Base: soma do período`;
+    document.getElementById('k_motora_s').textContent = `Base: soma do período`;
+    document.getElementById('k_ticket_s').textContent = `Base: Vlr. Viagem / Finalizadas`;
+    document.getElementById('k_cpd_s').textContent = `Finalizadas (${fmtInt(finalizadas)}) ÷ ${fmtInt(dias)} dia(s) com dados`;
+  }
+
+  function renderCharts(){
+    // agrega por dia
+    const byDay = new Map();
+    for (const r of filtered){
+      const d = r.data;
+      const cur = byDay.get(d) || {corridas:0, finalizadas:0, canceladas:0};
+      cur.corridas += Number(r.corridas)||0;
+      cur.finalizadas += Number(r.finalizadas)||0;
+      cur.canceladas += Number(r.canceladas)||0;
+      byDay.set(d, cur);
+    }
+    const labels = Array.from(byDay.keys()).sort();
+    const corridas = labels.map(d => byDay.get(d).corridas);
+    const finalizadas = labels.map(d => byDay.get(d).finalizadas);
+    const canceladas = labels.map(d => byDay.get(d).canceladas);
+
+    // chartDays
+    const ctx1 = document.getElementById('chartDays');
+    if (chartDays) chartDays.destroy();
+    chartDays = new Chart(ctx1, {
+      type: 'bar',
+      data: {
+        labels,
+        datasets: [
+          { label: 'Corridas', data: corridas },
+          { label: 'Finalizadas', data: finalizadas },
+          { label: 'Canceladas', data: canceladas },
+        ]
+      },
+      options: {
+        responsive:true,
+        plugins:{ legend:{ position:'top' } },
+        scales:{
+          x:{ ticks:{ maxRotation:0, autoSkip:true, maxTicksLimit:10 } },
+          y:{ beginAtZero:true }
+        }
+      }
+    });
+
+    // pie
+    const ctx2 = document.getElementById('chartPie');
+    if (chartPie) chartPie.destroy();
+    const totalFinal = sum('finalizadas');
+    const totalCanc = sum('canceladas');
+
+    chartPie = new Chart(ctx2, {
+      type:'doughnut',
+      data:{
+        labels:['Finalizadas','Canceladas'],
+        datasets:[{ data:[totalFinal, totalCanc] }]
+      },
+      options:{
+        responsive:true,
+        plugins:{ legend:{ position:'top' } }
+      }
     });
   }
-  // ordena por data
-  out.sort((a,b)=>a.dataISO.localeCompare(b.dataISO));
-  return out;
-}
 
-function parseCSVText(csvText){
-  const parsed = Papa.parse(csvText, {
-    delimiter: ';',
-    skipEmptyLines: true
-  });
+  function renderTable(){
+    const tb = document.getElementById('tbody');
+    tb.innerHTML = '';
+    document.getElementById('shownCount').textContent = fmtInt(filtered.length);
 
-  if(parsed.errors && parsed.errors.length){
-    console.warn(parsed.errors);
-  }
-  // remove header se parecer header (contém "Data" na coluna 2)
-  const data = parsed.data || [];
-  let rows = data;
-  if(rows.length && String(rows[0][1] ?? '').toLowerCase().includes('data')){
-    rows = rows.slice(1);
-  }
-  const norm = normalizeRows(rows);
+    // mostra no máximo 500 linhas pra não travar
+    const MAX = 500;
+    const slice = filtered.slice(0, MAX);
 
-  if(!norm.length){
-    throw new Error('Não consegui identificar linhas com datas no CSV. Verifique o formato (Planilha;Data;Corridas;...).');
-  }
-  return norm;
-}
-
-function setStatus(msg){
-  el('statusLine').textContent = msg;
-}
-
-function setDateInputsFromData(data){
-  if(!data.length) return;
-  el('dateStart').value = data[0].dataISO;
-  el('dateEnd').value = data[data.length-1].dataISO;
-}
-
-function buildMonthSelect(data){
-  const sel = el('monthSelect');
-  const months = [...new Set(data.map(r => monthKey(r.dataISO)).filter(Boolean))];
-  sel.innerHTML = '';
-  for(const m of months){
-    const opt = document.createElement('option');
-    opt.value = m;
-    opt.textContent = monthLabel(m);
-    sel.appendChild(opt);
-  }
-}
-
-function getSelectedMonths(){
-  const sel = el('monthSelect');
-  return [...sel.selectedOptions].map(o=>o.value);
-}
-
-function filterData(){
-  const ds = el('dateStart').value;
-  const de = el('dateEnd').value;
-  const months = getSelectedMonths();
-
-  return rawData.filter(r=>{
-    if(ds && r.dataISO < ds) return false;
-    if(de && r.dataISO > de) return false;
-    if(months.length && !months.includes(monthKey(r.dataISO))) return false;
-    return true;
-  });
-}
-
-function refreshTitle(filtered){
-  if(!filtered.length){
-    el('titlePeriod').textContent = 'Sem dados no filtro';
-    return;
-  }
-  const ds = filtered[0].dataISO;
-  const de = filtered[filtered.length-1].dataISO;
-
-  const months = [...new Set(filtered.map(r=>monthKey(r.dataISO)))];
-  const monthsLabel = months.length ? months.map(monthLabel).join(' • ') : '—';
-  el('titlePeriod').textContent = monthsLabel;
-  setStatus(`Período: ${ds} até ${de} • Meses: ${months.join(', ')} • Linhas: ${filtered.length}`);
-}
-
-function sum(filtered){
-  const total = {
-    corridas:0, finalizadas:0, canceladas:0, passageiros:0,
-    vlr_viagem:0, franquia:0, vlr_motora:0, mot_a_receber:0
-  };
-  for(const r of filtered){
-    total.corridas += r.corridas;
-    total.finalizadas += r.finalizadas;
-    total.canceladas += r.canceladas;
-    total.passageiros += r.passageiros;
-    total.vlr_viagem += r.vlr_viagem;
-    total.franquia += r.franquia;
-    total.vlr_motora += r.vlr_motora;
-    total.mot_a_receber += r.mot_a_receber;
-  }
-  return total;
-}
-
-function refreshKPIs(filtered){
-  if(!filtered.length){
-    ['kpiCorridas','kpiFinalizadas','kpiCanceladas','kpiPassageiros','kpiVlrViagem','kpiVlrMotora','kpiTicket','kpiCorridasDia']
-      .forEach(id=>el(id).textContent='—');
-    return;
-  }
-
-  const t = sum(filtered);
-  const taxaFin = t.corridas > 0 ? (t.finalizadas / t.corridas) : 0;
-  const taxaCanc = t.corridas > 0 ? (t.canceladas / t.corridas) : 0;
-  const ticket = t.finalizadas > 0 ? (t.vlr_viagem / t.finalizadas) : 0;
-
-  const diasComDados = new Set(filtered.map(r=>r.dataISO)).size;
-  const corridasDia = diasComDados > 0 ? (t.finalizadas / diasComDados) : 0;
-
-  el('kpiCorridas').textContent = brInt(t.corridas);
-  el('kpiCorridasSub').textContent = `Dias com dados: ${diasComDados}`;
-
-  el('kpiFinalizadas').textContent = brInt(t.finalizadas);
-  el('kpiFinalizadasSub').textContent = `Taxa de finalização: ${brPct(taxaFin)}`;
-
-  el('kpiCanceladas').textContent = brInt(t.canceladas);
-  el('kpiCanceladasSub').textContent = `Taxa de cancelamento: ${brPct(taxaCanc)}`;
-
-  el('kpiPassageiros').textContent = brInt(t.passageiros);
-  el('kpiPassageirosSub').textContent = `Total geral: ${brInt(t.passageiros)}`;
-
-  el('kpiVlrViagem').textContent = brMoney(t.vlr_viagem);
-  el('kpiVlrViagemSub').textContent = `Franquia (total): ${brMoney(t.franquia)}`;
-
-  el('kpiVlrMotora').textContent = brMoney(t.vlr_motora);
-  el('kpiVlrMotoraSub').textContent = `Mot. a receber (total): ${brMoney(t.mot_a_receber)}`;
-
-  el('kpiTicket').textContent = brMoney(ticket);
-  el('kpiTicketSub').textContent = 'Base: Vlr. Viagem / Finalizadas';
-
-  el('kpiCorridasDia').textContent = corridasDia.toFixed(2).replace('.',',');
-  el('kpiCorridasDiaSub').textContent = `Corridas finalizadas (${brInt(t.finalizadas)}) ÷ ${diasComDados} dia(s)`;
-}
-
-function refreshTable(filtered){
-  const tb = el('tblBody');
-  tb.innerHTML = '';
-  for(const r of filtered){
-    const tr = document.createElement('tr');
-    tr.innerHTML = `
-      <td>${r.planilha || '-'}</td>
-      <td>${r.dataISO}</td>
-      <td>${brInt(r.corridas)}</td>
-      <td>${brInt(r.finalizadas)}</td>
-      <td>${brInt(r.canceladas)}</td>
-      <td>${brInt(r.passageiros)}</td>
-      <td>${brMoney(r.vlr_viagem)}</td>
-      <td>${brMoney(r.franquia)}</td>
-      <td>${brMoney(r.vlr_motora)}</td>
-      <td>${brMoney(r.mot_a_receber)}</td>
-    `;
-    tb.appendChild(tr);
-  }
-}
-
-function refreshCharts(filtered){
-  // Agrupa por dia
-  const byDay = new Map();
-  for(const r of filtered){
-    if(!byDay.has(r.dataISO)){
-      byDay.set(r.dataISO, {corridas:0, finalizadas:0, canceladas:0});
+    for (const r of slice){
+      const tr = document.createElement('tr');
+      tr.innerHTML = `
+        <td>${escapeHTML(r.planilha)}</td>
+        <td>${escapeHTML(r.data)}</td>
+        <td>${fmtInt(r.corridas)}</td>
+        <td>${fmtInt(r.finalizadas)}</td>
+        <td>${fmtInt(r.canceladas)}</td>
+        <td>${fmtInt(r.passageiros)}</td>
+        <td>${fmtMoney(r.vlr_viagem)}</td>
+        <td>${fmtMoney(r.vlr_motora)}</td>
+        <td>${fmtMoney(r.franquia)}</td>
+      `;
+      tb.appendChild(tr);
     }
-    const o = byDay.get(r.dataISO);
-    o.corridas += r.corridas;
-    o.finalizadas += r.finalizadas;
-    o.canceladas += r.canceladas;
-  }
-  const labels = [...byDay.keys()].sort();
-  const corridas = labels.map(d=>byDay.get(d).corridas);
-  const finalizadas = labels.map(d=>byDay.get(d).finalizadas);
-  const canceladas = labels.map(d=>byDay.get(d).canceladas);
 
-  // Chart diário
-  if(chartDaily) chartDaily.destroy();
-  chartDaily = new Chart(document.getElementById('chartDaily'), {
-    type:'line',
-    data:{
-      labels,
-      datasets:[
-        {label:'Corridas', data:corridas},
-        {label:'Finalizadas', data:finalizadas},
-        {label:'Canceladas', data:canceladas},
-      ]
-    },
-    options:{
-      responsive:true,
-      maintainAspectRatio:false,
-      plugins:{legend:{position:'top'}},
-      scales:{x:{ticks:{maxRotation:0, autoSkip:true}}}
+    if (filtered.length > MAX){
+      const tr = document.createElement('tr');
+      tr.innerHTML = `<td colspan="9" style="color:#64748b">Mostrando apenas as primeiras ${MAX} linhas (para desempenho). Ajuste os filtros para ver menos linhas.</td>`;
+      tb.appendChild(tr);
+    }
+  }
+
+  function escapeHTML(s){
+    return String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+  }
+
+  function exportFilteredCSV(){
+    const header = ['Planilha','Data','Corridas','Finalizadas','Canceladas','Passageiros','Vlr_Viagem','Vlr_Motora','Franquia'];
+    const lines = [header.join(';')];
+
+    for (const r of filtered){
+      lines.push([
+        r.planilha,
+        r.data,
+        (Number(r.corridas)||0),
+        (Number(r.finalizadas)||0),
+        (Number(r.canceladas)||0),
+        (Number(r.passageiros)||0),
+        (Number(r.vlr_viagem)||0).toFixed(2).replace('.',','),
+        (Number(r.vlr_motora)||0).toFixed(2).replace('.',','),
+        (Number(r.franquia)||0).toFixed(2).replace('.',',')
+      ].join(';'));
+    }
+
+    const blob = new Blob([lines.join('\n')], {type:'text/csv;charset=utf-8'});
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = `dashboard_export_${Date.now()}.csv`;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+  }
+
+  // =============================
+  // Eventos
+  // =============================
+  document.getElementById('btnReload').addEventListener('click', async () => {
+    try{
+      document.getElementById('btnReload').disabled = true;
+      await loadFromGitHub();
+      alert('Recarregado com sucesso do dados.xlsx ✅');
+    }catch(e){
+      console.error(e);
+      alert(e.message || 'Falha ao carregar dados.xlsx');
+    }finally{
+      document.getElementById('btnReload').disabled = false;
     }
   });
 
-  // Pie eficiência
-  const t = sum(filtered);
-  if(chartPie) chartPie.destroy();
-  chartPie = new Chart(document.getElementById('chartPie'), {
-    type:'doughnut',
-    data:{
-      labels:['Finalizadas','Canceladas'],
-      datasets:[{data:[t.finalizadas, t.canceladas]}]
-    },
-    options:{
-      responsive:true,
-      maintainAspectRatio:false,
-      plugins:{legend:{position:'top'}}
-    }
+  document.getElementById('btnApply').addEventListener('click', applyFilters);
+  document.getElementById('btnReset').addEventListener('click', resetFilters);
+  document.getElementById('btnExport').addEventListener('click', exportFilteredCSV);
+
+  // aplica ao mudar filtros
+  document.getElementById('monthSelect').addEventListener('change', applyFilters);
+  document.getElementById('dateStart').addEventListener('change', applyFilters);
+  document.getElementById('dateEnd').addEventListener('change', applyFilters);
+  document.getElementById('q').addEventListener('input', () => {
+    // debounce simples
+    clearTimeout(window.__qT);
+    window.__qT = setTimeout(applyFilters, 180);
   });
-}
 
-function refreshAll(){
-  const filtered = filterData();
-  refreshTitle(filtered);
-  refreshKPIs(filtered);
-  refreshCharts(filtered);
-  refreshTable(filtered);
-}
-
-function mergeData(base, incoming){
-  // Mescla por dataISO (se repetir, soma)
-  const map = new Map();
-  for(const r of base){
-    map.set(r.dataISO, {...r});
-  }
-  for(const r of incoming){
-    if(map.has(r.dataISO)){
-      const o = map.get(r.dataISO);
-      // soma campos principais
-      o.corridas += r.corridas;
-      o.finalizadas += r.finalizadas;
-      o.canceladas += r.canceladas;
-      o.passageiros += r.passageiros;
-      o.vlr_viagem += r.vlr_viagem;
-      o.franquia += r.franquia;
-      o.vlr_motora += r.vlr_motora;
-      o.mot_a_receber += r.mot_a_receber;
-      // mantém planilha mais recente se vier
-      if(r.planilha) o.planilha = r.planilha;
-      map.set(r.dataISO, o);
-    } else {
-      map.set(r.dataISO, {...r});
+  // =============================
+  // Inicialização
+  // =============================
+  (async function init(){
+    try{
+      await loadFromGitHub();
+    }catch(e){
+      console.error(e);
+      alert(e.message || 'Falha ao abrir dados.xlsx');
     }
-  }
-  const out = [...map.values()];
-  out.sort((a,b)=>a.dataISO.localeCompare(b.dataISO));
-  return out;
-}
-
-async function readFileAsText(file){
-  return new Promise((resolve,reject)=>{
-    const fr = new FileReader();
-    fr.onload = ()=>resolve(fr.result);
-    fr.onerror = ()=>reject(fr.error);
-    fr.readAsText(file, 'utf-8');
-  });
-}
-
-async function loadFromFile(mode){ // 'replace' | 'merge'
-  const input = el('fileInput');
-  if(!input.files || !input.files[0]){
-    alert('Escolha um arquivo CSV primeiro (botão Procurar).');
-    return;
-  }
-  try{
-    const txt = await readFileAsText(input.files[0]);
-    const incoming = parseCSVText(txt);
-
-    sourceFileData = incoming;
-
-    if(mode === 'replace'){
-      rawData = incoming;
-    } else {
-      rawData = mergeData(rawData, incoming);
-    }
-
-    setDateInputsFromData(rawData);
-    buildMonthSelect(rawData);
-    refreshAll();
-  }catch(e){
-    alert(e.message || String(e));
-  }
-}
-
-function exportFilteredCSV(){
-  const filtered = filterData();
-  if(!filtered.length){
-    alert('Nada para exportar no filtro atual.');
-    return;
-  }
-
-  // reconstrói CSV no mesmo padrão (Planilha;Data;Corridas;Finalizadas;Canceladas;...etc)
-  const header = ['Planilha','Data','Corridas','Finalizadas','Canceladas','(col5)','Passageiros','(col7)','(col8)','VlrViagem','Franquia','VlrMotora','MotAReceber'];
-  const lines = [header.join(';')];
-
-  for(const r of filtered){
-    const line = [
-      r.planilha ?? '',
-      r.dataISO ?? '',
-      r.corridas ?? 0,
-      r.finalizadas ?? 0,
-      r.canceladas ?? 0,
-      '', // col5 desconhecida
-      r.passageiros ?? 0,
-      '', '', // col7 col8 desconhecidas
-      (r.vlr_viagem ?? 0).toFixed(2),
-      (r.franquia ?? 0).toFixed(2),
-      (r.vlr_motora ?? 0).toFixed(2),
-      (r.mot_a_receber ?? 0).toFixed(2),
-    ].join(';');
-    lines.push(line);
-  }
-
-  const csv = lines.join('\n');
-  const blob = new Blob([csv], {type:'text/csv;charset=utf-8'});
-  const a = document.createElement('a');
-  a.href = URL.createObjectURL(blob);
-  a.download = 'dashboard_export_filtrado.csv';
-  document.body.appendChild(a);
-  a.click();
-  a.remove();
-}
-
-async function autoLoadDadosCSV(){
-  // tenta buscar dados.csv do próprio GitHub Pages (sem cache)
-  try{
-    const url = DATA_URL + '?v=' + Date.now();
-    const resp = await fetch(url, {cache:'no-store'});
-    if(!resp.ok) throw new Error('Falha ao baixar ' + DATA_URL);
-    const txt = await resp.text();
-    const incoming = parseCSVText(txt);
-
-    rawData = incoming;
-
-    setDateInputsFromData(rawData);
-    buildMonthSelect(rawData);
-
-    // Seleciona automaticamente o último mês
-    const months = [...new Set(rawData.map(r=>monthKey(r.dataISO)).filter(Boolean))];
-    const last = months[months.length-1];
-    if(last){
-      const sel = el('monthSelect');
-      [...sel.options].forEach(o=>o.selected = (o.value === last));
-    }
-
-    refreshAll();
-  }catch(e){
-    // Não trava o site. Só avisa.
-    console.warn(e);
-    alert('Não consegui identificar linhas com datas no CSV. Verifique se ele está no formato (Planilha;Data;Corridas;...).');
-  }
-}
-
-/* Eventos */
-el('monthSelect').addEventListener('change', refreshAll);
-el('dateStart').addEventListener('change', refreshAll);
-el('dateEnd').addEventListener('change', refreshAll);
-
-el('btnReplace').addEventListener('click', ()=>loadFromFile('replace'));
-el('btnMerge').addEventListener('click', ()=>loadFromFile('merge'));
-el('btnClearMonths').addEventListener('click', ()=>{
-  const sel = el('monthSelect');
-  [...sel.options].forEach(o=>o.selected=false);
-  refreshAll();
-});
-el('btnReset').addEventListener('click', ()=>{
-  // volta para o último arquivo manual enviado (se existir), senão mantém o atual
-  if(sourceFileData && sourceFileData.length){
-    rawData = sourceFileData.slice();
-    setDateInputsFromData(rawData);
-    buildMonthSelect(rawData);
-    refreshAll();
-  }else{
-    // se não tiver arquivo manual, tenta recarregar do dados.csv
-    autoLoadDadosCSV();
-  }
-});
-el('btnExport').addEventListener('click', exportFilteredCSV);
-
-/* Inicializa */
-setStatus('Carregando dados.csv do GitHub…');
-autoLoadDadosCSV();
+  })();
 </script>
 </body>
 </html>
