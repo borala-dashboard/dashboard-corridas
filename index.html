@@ -330,25 +330,49 @@
       const ws = wb.Sheets[sheetName];
       if (!ws) continue;
 
-      // lê como objetos usando a primeira linha como header
-      const json = XLSX.utils.sheet_to_json(ws, { defval: null, raw: true });
+     // --- encontra a linha do cabeçalho procurando "Data" (ou similar) ---
+const rowsAOA = XLSX.utils.sheet_to_json(ws, { header: 1, defval: null, raw: true });
+if (!Array.isArray(rowsAOA) || rowsAOA.length === 0) continue;
 
-      if (!Array.isArray(json) || json.length === 0) continue;
+// acha a linha que tem "Data" (ou "DATA", "Dia", etc.)
+let headerRowIndex = -1;
+for (let i = 0; i < Math.min(rowsAOA.length, 30); i++) {
+  const row = rowsAOA[i] || [];
+  const rowText = row.map(v => String(v ?? '').trim().toLowerCase());
+  const hasDateHeader = rowText.some(t => DATE_KEYS.some(k => t === k || t.includes(k)));
+  if (hasDateHeader) { headerRowIndex = i; break; }
+}
 
-      // detecta colunas
-      const cols = Object.keys(json[0] || {});
-      const colDate = findCol(cols, DATE_KEYS);
+// se não achou cabeçalho com Data, ignora a aba
+if (headerRowIndex === -1) continue;
 
-      // se não tem coluna de data, ignora a aba (mas não quebra)
-      if (!colDate) continue;
+// monta headers normalizados
+const headers = (rowsAOA[headerRowIndex] || []).map(h => String(h ?? '').trim());
+const dataRows = rowsAOA.slice(headerRowIndex + 1);
 
-      const colCorridas = findCol(cols, CORRIDAS_KEYS);
-      const colFinal = findCol(cols, FINAL_KEYS);
-      const colCanc = findCol(cols, CANC_KEYS);
-      const colPass = findCol(cols, PASS_KEYS);
-      const colViagem = findCol(cols, VIAGEM_KEYS);
-      const colMotora = findCol(cols, MOTORA_KEYS);
-      const colFranquia = findCol(cols, FRANQ_KEYS);
+// transforma em objetos {col: valor}
+const json = dataRows
+  .filter(r => Array.isArray(r) && r.some(v => v !== null && v !== ''))
+  .map(r => {
+    const obj = {};
+    for (let c = 0; c < headers.length; c++) obj[headers[c]] = r[c];
+    return obj;
+  });
+
+if (!json.length) continue;
+
+// detecta colunas pelo nome
+const cols = headers;
+const colDate = findCol(cols, DATE_KEYS);
+if (!colDate) continue;
+
+const colCorridas = findCol(cols, CORRIDAS_KEYS);
+const colFinal = findCol(cols, FINAL_KEYS);
+const colCanc = findCol(cols, CANC_KEYS);
+const colPass = findCol(cols, PASS_KEYS);
+const colViagem = findCol(cols, VIAGEM_KEYS);
+const colMotora = findCol(cols, MOTORA_KEYS);
+const colFranquia = findCol(cols, FRANQ_KEYS);
 
       for (const r of json){
         const d = parseExcelDate(r[colDate]);
