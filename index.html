@@ -105,6 +105,19 @@
       display:flex; justify-content:space-between; align-items:center; gap:12px; flex-wrap:wrap;
       margin-bottom:8px;
     }
+/* Barra do período selecionado */
+.periodBanner{
+  margin: 12px 0 2px;
+  padding: 12px 14px;
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  background: linear-gradient(180deg, #ffffff, #f8fafc);
+  box-shadow: var(--shadow);
+  text-align: center;
+  font-weight: 900;
+  font-size: 18px;
+  letter-spacing: .2px;
+}
 
     @media (max-width: 980px){
       .controls{grid-template-columns: 1fr 1fr}
@@ -164,6 +177,7 @@
 
       <div class="meta" id="metaPeriod">—</div>
     </section>
+<div class="periodBanner" id="periodBanner">—</div>
 
     <section class="card">
       <div class="kpis">
@@ -486,6 +500,28 @@ const colFranquia = findCol(cols, FRANQ_KEYS);
     const start = document.getElementById('dateStart').value;
     const end = document.getElementById('dateEnd').value;
     const months = getSelectedMonths();
+    // Texto “bonito” do banner (mês/ano ou período)
+const monthNames = ['jan','fev','mar','abr','mai','jun','jul','ago','set','out','nov','dez'];
+function prettyMonth(m){
+  const [y,mm] = m.split('-');
+  return `${monthNames[Number(mm)-1]} de ${y}`;
+}
+
+let bannerText = '—';
+if (months.length === 1){
+  bannerText = prettyMonth(months[0]);
+} else if (months.length > 1){
+  bannerText = months.map(prettyMonth).join(' • ');
+} else if (start && end){
+  bannerText = `${start} até ${end}`;
+} else if (start){
+  bannerText = `A partir de ${start}`;
+} else if (end){
+  bannerText = `Até ${end}`;
+}
+
+document.getElementById('periodBanner').textContent = bannerText;
+
     document.getElementById('metaPeriod').textContent =
       `Período: ${start || '—'} até ${end || '—'} • Meses: ${months.length ? months.join(', ') : 'todos'} • Linhas filtradas: ${filtered.length}`;
   }
